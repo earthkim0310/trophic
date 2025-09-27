@@ -11,14 +11,23 @@ st.title("생태계 평형 → 충격 → 회복 (생산자 · 1차 소비자 ·
 
 # ---------- Korean font ----------
 def set_korean_font():
-    candidates = ["AppleGothic", "Malgun Gothic", "NanumGothic", "Noto Sans CJK KR", "Noto Sans KR"]
-    available = {f.name for f in font_manager.fontManager.ttflist}
-    for name in candidates:
-        if name in available:
-            plt.rcParams["font.family"] = name
-            plt.rcParams["axes.unicode_minus"] = False
-            return
-    plt.rcParams["axes.unicode_minus"] = False
+    try:
+        candidates = ["AppleGothic", "Malgun Gothic", "NanumGothic", "Noto Sans CJK KR", "Noto Sans KR", "DejaVu Sans"]
+        available = {f.name for f in font_manager.fontManager.ttflist}
+        for name in candidates:
+            if name in available:
+                plt.rcParams["font.family"] = name
+                plt.rcParams["axes.unicode_minus"] = False
+                return
+        # 폰트를 찾지 못한 경우 기본 설정
+        plt.rcParams["font.family"] = "DejaVu Sans"
+        plt.rcParams["axes.unicode_minus"] = False
+    except Exception as e:
+        # 폰트 설정 실패 시 기본 설정
+        plt.rcParams["font.family"] = "DejaVu Sans"
+        plt.rcParams["axes.unicode_minus"] = False
+        print(f"폰트 설정 실패: {e}")
+
 set_korean_font()
 
 st.info("현재 버전은 **모든 단계의 평형값이 양수**가 되도록 매개변수를 조정했으며, 용어를 ‘생산자/1차 소비자/2차 소비자’로 통일했습니다.")
@@ -37,7 +46,7 @@ h  = 0.03     # 2차 소비자 포획 압력
 
 # Time
 T_total = 30.0
-dt = 0.05
+dt = 0.1  # dt를 0.05에서 0.1로 증가하여 메모리 사용량 감소
 t_axis = np.arange(0, T_total + dt, dt)
 steps = len(t_axis)
 
@@ -100,40 +109,52 @@ colA, colB = st.columns([2,1])
 graph_ph = colA.empty(); pyr_ph = colB.empty()
 
 def draw_frame(k):
-    fig, ax = plt.subplots(figsize=(8,4))
-    ax.plot(t_axis[:k], P[:k],  label="생산자")
-    ax.plot(t_axis[:k], C1[:k], label="1차 소비자", linewidth=2.5)
-    ax.plot(t_axis[:k], C2[:k], label="2차 소비자")
-    ax.axvline(t_shock, linestyle="--")
-    ax.set_xlabel("시간"); ax.set_ylabel("개체수(상대)")
-    ax.legend(loc="best")
-    graph_ph.pyplot(fig)
-    plt.close(fig)  # 메모리 누수 방지
+    try:
+        # 안전한 인덱스 확인
+        k = min(max(k, 0), len(t_axis)-1)
+        
+        fig, ax = plt.subplots(figsize=(8,4))
+        ax.plot(t_axis[:k], P[:k],  label="생산자")
+        ax.plot(t_axis[:k], C1[:k], label="1차 소비자", linewidth=2.5)
+        ax.plot(t_axis[:k], C2[:k], label="2차 소비자")
+        ax.axvline(t_shock, linestyle="--")
+        ax.set_xlabel("시간"); ax.set_ylabel("개체수(상대)")
+        ax.legend(loc="best")
+        graph_ph.pyplot(fig)
+        plt.close(fig)  # 메모리 누수 방지
 
-    kk = max(0, k-1)
-    p,c1,c2 = P[kk], C1[kk], C2[kk]
-    maxw = max(p,c1,c2) if max(p,c1,c2) > 0 else 1.0
-    fig2, ax2 = plt.subplots(figsize=(4,4))
-    for y,w,label in zip([1,2,3],[p/maxw,c1/maxw,c2/maxw],["생산자","1차 소비자","2차 소비자"]):
-        ax2.barh(y, w, height=0.6)
-        ax2.text(w+0.02, y, label, va="center")
-    ax2.set_xlim(0,1.2); ax2.set_ylim(0.5,3.5)
-    ax2.set_yticks([]); ax2.set_xticks([])
-    ax2.set_title(f"t = {t_axis[kk]:.2f}")
-    pyr_ph.pyplot(fig2)
-    plt.close(fig2)  # 메모리 누수 방지
+        kk = max(0, k-1)
+        if kk < len(P) and kk < len(C1) and kk < len(C2):
+            p,c1,c2 = P[kk], C1[kk], C2[kk]
+            maxw = max(p,c1,c2) if max(p,c1,c2) > 0 else 1.0
+            fig2, ax2 = plt.subplots(figsize=(4,4))
+            for y,w,label in zip([1,2,3],[p/maxw,c1/maxw,c2/maxw],["생산자","1차 소비자","2차 소비자"]):
+                ax2.barh(y, w, height=0.6)
+                ax2.text(w+0.02, y, label, va="center")
+            ax2.set_xlim(0,1.2); ax2.set_ylim(0.5,3.5)
+            ax2.set_yticks([]); ax2.set_xticks([])
+            ax2.set_title(f"t = {t_axis[kk]:.2f}")
+            pyr_ph.pyplot(fig2)
+            plt.close(fig2)  # 메모리 누수 방지
+    except Exception as e:
+        st.error(f"차트 그리기 오류: {e}")
+        # 기본 차트 표시
+        fig, ax = plt.subplots(figsize=(8,4))
+        ax.text(0.5, 0.5, "차트를 불러올 수 없습니다", ha='center', va='center', transform=ax.transAxes)
+        graph_ph.pyplot(fig)
+        plt.close(fig)
 
 # initial draw
 draw_frame(int(t_shock/dt)+2)
 
 if start:
     # 애니메이션 단계 선택
-    max_step = min(steps, 100)  # 최대 100단계로 제한
+    max_step = min(steps, 50)  # 최대 50단계로 제한 (Cloud 메모리 제한 고려)
     step_slider = st.slider(
         "시뮬레이션 단계", 
         min_value=2, 
         max_value=max_step, 
-        value=int(t_shock/dt)+2,
+        value=min(int(t_shock/dt)+2, max_step),
         step=1,
         help="슬라이더를 움직여서 시뮬레이션을 단계별로 확인하세요"
     )
