@@ -108,6 +108,7 @@ def draw_frame(k):
     ax.set_xlabel("시간"); ax.set_ylabel("개체수(상대)")
     ax.legend(loc="best")
     graph_ph.pyplot(fig)
+    plt.close(fig)  # 메모리 누수 방지
 
     kk = max(0, k-1)
     p,c1,c2 = P[kk], C1[kk], C2[kk]
@@ -120,11 +121,49 @@ def draw_frame(k):
     ax2.set_yticks([]); ax2.set_xticks([])
     ax2.set_title(f"t = {t_axis[kk]:.2f}")
     pyr_ph.pyplot(fig2)
+    plt.close(fig2)  # 메모리 누수 방지
 
 # initial draw
 draw_frame(int(t_shock/dt)+2)
 
 if start:
-    for k in range(2, steps+1):
-        draw_frame(k)
-        if speed>0: time.sleep(speed)
+    # 애니메이션을 위한 상태 관리
+    if 'animation_step' not in st.session_state:
+        st.session_state.animation_step = 2
+        st.session_state.animation_running = True
+    
+    # 현재 단계 그리기
+    draw_frame(st.session_state.animation_step)
+    
+    # 진행률 표시
+    progress = (st.session_state.animation_step - 2) / (steps - 2)
+    st.progress(progress)
+    st.write(f'진행률: {progress*100:.1f}% (단계 {st.session_state.animation_step-1}/{steps-1})')
+    
+    # 컨트롤 버튼들
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("다음 단계") and st.session_state.animation_step < steps:
+            st.session_state.animation_step += 1
+            st.rerun()
+    
+    with col2:
+        if st.button("이전 단계") and st.session_state.animation_step > 2:
+            st.session_state.animation_step -= 1
+            st.rerun()
+    
+    with col3:
+        if st.button("처음으로"):
+            st.session_state.animation_step = 2
+            st.rerun()
+    
+    # 애니메이션 완료 확인
+    if st.session_state.animation_step >= steps:
+        st.success("🎉 시뮬레이션이 완료되었습니다!")
+        
+        # 재시작 버튼
+        if st.button("다시 시작"):
+            st.session_state.animation_step = 2
+            st.session_state.animation_running = True
+            st.rerun()
