@@ -127,43 +127,53 @@ def draw_frame(k):
 draw_frame(int(t_shock/dt)+2)
 
 if start:
-    # 애니메이션을 위한 상태 관리
-    if 'animation_step' not in st.session_state:
-        st.session_state.animation_step = 2
-        st.session_state.animation_running = True
+    # 애니메이션 단계 선택
+    max_step = min(steps, 100)  # 최대 100단계로 제한
+    step_slider = st.slider(
+        "시뮬레이션 단계", 
+        min_value=2, 
+        max_value=max_step, 
+        value=int(t_shock/dt)+2,
+        step=1,
+        help="슬라이더를 움직여서 시뮬레이션을 단계별로 확인하세요"
+    )
     
-    # 현재 단계 그리기
-    draw_frame(st.session_state.animation_step)
+    # 선택된 단계 그리기
+    draw_frame(step_slider)
     
     # 진행률 표시
-    progress = (st.session_state.animation_step - 2) / (steps - 2)
+    progress = (step_slider - 2) / (max_step - 2)
     st.progress(progress)
-    st.write(f'진행률: {progress*100:.1f}% (단계 {st.session_state.animation_step-1}/{steps-1})')
+    st.write(f'진행률: {progress*100:.1f}% (단계 {step_slider-1}/{max_step-1})')
     
-    # 컨트롤 버튼들
-    col1, col2, col3 = st.columns(3)
+    # 현재 시간 표시
+    current_time = t_axis[step_slider-1] if step_slider-1 < len(t_axis) else t_axis[-1]
+    st.write(f'현재 시간: {current_time:.2f}')
     
-    with col1:
-        if st.button("다음 단계") and st.session_state.animation_step < steps:
-            st.session_state.animation_step += 1
-            st.rerun()
+    # 현재 개체수 표시
+    if step_slider-1 < len(P):
+        st.write("**현재 개체수:**")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("생산자", f"{P[step_slider-1]:.2f}")
+        with col2:
+            st.metric("1차 소비자", f"{C1[step_slider-1]:.2f}")
+        with col3:
+            st.metric("2차 소비자", f"{C2[step_slider-1]:.2f}")
     
-    with col2:
-        if st.button("이전 단계") and st.session_state.animation_step > 2:
-            st.session_state.animation_step -= 1
-            st.rerun()
-    
-    with col3:
-        if st.button("처음으로"):
-            st.session_state.animation_step = 2
-            st.rerun()
-    
-    # 애니메이션 완료 확인
-    if st.session_state.animation_step >= steps:
-        st.success("🎉 시뮬레이션이 완료되었습니다!")
+    # 전체 시뮬레이션 결과 보기
+    if st.checkbox("전체 시뮬레이션 결과 보기"):
+        st.write("**전체 시뮬레이션 결과:**")
+        draw_frame(steps)
         
-        # 재시작 버튼
-        if st.button("다시 시작"):
-            st.session_state.animation_step = 2
-            st.session_state.animation_running = True
-            st.rerun()
+        # 최종 개체수
+        st.write("**최종 개체수:**")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("생산자", f"{P[-1]:.2f}")
+        with col2:
+            st.metric("1차 소비자", f"{C1[-1]:.2f}")
+        with col3:
+            st.metric("2차 소비자", f"{C2[-1]:.2f}")
+        
+        st.success("🎉 시뮬레이션이 완료되었습니다!")
